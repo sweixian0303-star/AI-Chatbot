@@ -1,0 +1,26 @@
+[
+  {
+    "role": "user",
+    "content": "/help"
+  },
+  {
+    "role": "assistant",
+    "content": "你需要帮助吗?我是西瓜，一个友善的AI助手。可以回答你关于各种话题的问题，例如生活、学习、技术等。也可以提供笑话和小游戏。怎么可以帮助你呢?"
+  },
+  {
+    "role": "user",
+    "content": "My name is xian"
+  },
+  {
+    "role": "assistant",
+    "content": "小宇宙的朋友，xian，很高兴见到你！我记住了你的名字，下次我们聊天的时候，直接叫你xian就行了！你需要我的帮助吗？"
+  },
+  {
+    "role": "user",
+    "content": "what is my name"
+  },
+  {
+    "role": "assistant",
+    "content": "你是xian，记住了吗？"
+  }
+]

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍉 西瓜 AI 助手</title>
+    <style>
+        /* 重置所有元素的默认边距和内边距，统一盒模型 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* 页面整体：淡绿色渐变背景，用 flexbox 把聊天框居中 */
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+            display: flex;
+            justify-content: center;  /* 水平居中 */
+            align-items: center;      /* 垂直居中 */
+            height: 100vh;            /* 占满整个屏幕高度 */
+        }
+
+        /* 聊天主容器：白色卡片，圆角阴影 */
+        .chat-container {
+            width: 500px;
+            height: 90vh;             /* 视窗高度的 90%，避免超出屏幕 */
+            max-height: 780px;        /* 最大不超过 780px */
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;   /* 子元素垂直排列：标题 → 消息 → 输入框 */
+            overflow: hidden;         /* 超出部分隐藏，配合圆角 */
+        }
+
+        /* 顶部标题栏：深绿到浅绿渐变 */
+        .chat-header {
+            background: linear-gradient(135deg, #2e7d32, #56ab2f);
+            color: white;
+            padding: 18px 20px;
+            text-align: center;
+            flex-shrink: 0;           /* 禁止被压缩，标题栏始终完整显示 */
+        }
+
+        .chat-header h1 { font-size: 20px; letter-spacing: 1px; }
+        .chat-header p  { font-size: 12px; opacity: 0.85; margin-top: 5px; }
+
+        /* 在线状态绿点 */
+        .chat-header .status {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #a8e063;
+            border-radius: 50%;       /* 变成圆形 */
+            margin-right: 6px;
+            animation: pulse 2s infinite;  /* 呼吸动画 */
+        }
+
+        /* 呼吸动画：透明度在 1 和 0.4 之间循环 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        /* 消息列表区域：flex: 1 让它占据剩余空间，overflow-y 让内容可滚动 */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;         /* 消息多了自动出现滚动条 */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;   /* 消息从上到下排列 */
+            gap: 14px;                /* 消息之间的间距 */
+            background: #fafafa;
+        }
+
+        /* 自定义滚动条样式（仅 Chrome/Edge 支持） */
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c8e6c9;
+            border-radius: 4px;
+        }
+
+        /* 消息气泡基础样式 */
+        .message {
+            max-width: 80%;           /* 最宽占容器 80%，不会撑满整行 */
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.7;
+            word-break: break-word;   /* 长单词自动换行 */
+            animation: fadeIn 0.3s ease;  /* 出现时淡入动画 */
+        }
+
+        /* 消息淡入动画：从下方 8px 处浮上来 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 用户消息：绿色渐变，靠右对齐，右下角直角 */
+        .message.user {
+            background: linear-gradient(135deg, #2e7d32, #56ab2f);
+            color: white;
+            align-self: flex-end;             /* 靠右 */
+            border-bottom-right-radius: 4px;  /* 右下角变尖，像聊天气泡 */
+            box-shadow: 0 2px 8px rgba(86,171,47,0.3);
+        }
+
+        /* AI 消息：白色，靠左对齐，左下角直角 */
+        .message.bot {
+            background: white;
+            color: #333;
+            align-self: flex-start;           /* 靠左 */
+            border-bottom-left-radius: 4px;   /* 左下角变尖 */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* AI 消息上方的名字标签 */
+        .message.bot .name {
+            font-size: 11px;
+            color: #56ab2f;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* 打字中动画容器 */
+        .typing {
+            background: white;
+            align-self: flex-start;
+            padding: 12px 18px;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* 三个跳动的绿点 */
+        .typing span {
+            display: inline-block;
+            width: 7px; height: 7px;
+            background: #56ab2f;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: bounce 1.2s infinite;
+        }
+
+        /* 三个点错开时间，形成波浪效果 */
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+        /* 跳动动画：向上跳 6px 再落下 */
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40%            { transform: translateY(-6px); }
+        }
+
+        /* 底部输入区域 */
+        .chat-footer {
+            padding: 14px 16px;
+            border-top: 1px solid #e8f5e9;
+            display: flex;
+            gap: 8px;
+            background: white;
+            flex-shrink: 0;           /* 禁止被压缩，输入框始终可见 */
+        }
+
+        /* 输入框：flex: 1 让它占满剩余宽度 */
+        .chat-footer input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1.5px solid #c8e6c9;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;  /* 聚焦时边框颜色平滑过渡 */
+        }
+
+        /* 输入框聚焦时边框变绿 */
+        .chat-footer input:focus { border-color: #56ab2f; }
+
+        /* 按钮通用样式 */
+        .chat-footer button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .chat-footer button:hover { opacity: 0.85; }  /* 悬停时略微透明 */
+
+        /* 发送按钮：绿色渐变 */
+        #sendBtn  { background: linear-gradient(135deg, #2e7d32, #56ab2f); color: white; }
+        /* 清除按钮：浅绿背景 */
+        #clearBtn { background: #f1f8e9; color: #56ab2f; border: 1.5px solid #c8e6c9; }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+
+    <!-- 标题栏 -->
+    <div class="chat-header">
+        <h1>🍉 西瓜 AI 助手</h1>
+        <p><span class="status"></span>在线 · 随时为你服务</p>
+    </div>
+
+    <!-- 消息列表，id="messages" 供 JS 操作 -->
+    <div class="chat-messages" id="messages">
+        <!-- 初始欢迎消息 -->
+        <div class="message bot">
+            <div class="name">🍉 西瓜</div>
+            你好！我是西瓜 AI 助手，有什么可以帮你的吗？😊
+        </div>
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="chat-footer">
+        <input type="text" id="userInput" placeholder="输入消息，按 Enter 发送..." />
+        <button id="clearBtn" onclick="clearChat()">清除</button>
+        <button id="sendBtn"  onclick="sendMessage()">发送</button>
+    </div>
+
+</div>
+
+<script>
+    // 获取 DOM 元素，后面频繁用到
+    const messages  = document.getElementById("messages");
+    const userInput = document.getElementById("userInput");
+
+    // 监听键盘事件：按 Enter 发送（Shift+Enter 不触发，留给换行）
+    userInput.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) sendMessage();
+    });
+
+    // 添加一条消息到界面
+    function addMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = `message ${role}`;  // "message user" 或 "message bot"
+
+        if (role === "bot") {
+            // AI 消息：把 \n 换行符转成 HTML <br>，保留段落格式
+            const formatted = text.replace(/\n/g, "<br>");
+            div.innerHTML = `<div class="name">🍉 西瓜</div>${formatted}`;
+        } else {
+            // 用户消息：用 textContent 避免 XSS 注入风险
+            div.textContent = text;
+        }
+
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;  // 自动滚到最新消息
+    }
+
+    // 显示"打字中"动画（三个跳动的点）
+    function showTyping() {
+        const div = document.createElement("div");
+        div.className = "typing";
+        div.id = "typing";
+        div.innerHTML = "<span></span><span></span><span></span>";
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // 移除打字动画
+    function removeTyping() {
+        const t = document.getElementById("typing");
+        if (t) t.remove();
+    }
+
+    // 发送消息的主函数
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;              // 空消息不发送
+
+        addMessage("user", text);       // 先把用户消息显示出来
+        userInput.value = "";           // 清空输入框
+        showTyping();                   // 显示 AI 正在打字
+
+        try {
+            // 用 fetch 发送 POST 请求到 Flask 的 /chat 接口
+            const res  = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text })  // 转成 JSON 字符串
+            });
+            const data = await res.json();  // 解析返回的 JSON
+            removeTyping();                 // 移除打字动画
+
+            if (data.reply) {
+                addMessage("bot", data.reply);           // 显示 AI 回复
+            } else {
+                addMessage("bot", "❌ 出错了：" + data.error);  // 显示错误
+            }
+        } catch (err) {
+            // fetch 本身失败（断网等）
+            removeTyping();
+            addMessage("bot", "❌ 网络错误，请重试");
+        }
+    }
+
+    // 清除对话：调用 /clear 接口重置服务器 session，同时清空界面
+    async function clearChat() {
+        await fetch("/clear", { method: "POST" });
+        messages.innerHTML = `
+            <div class="message bot">
+                <div class="name">🍉 西瓜</div>
+                记忆已清除，我们重新开始吧！😊
+            </div>`;
+    }
+</script>
+</body>
+</html>
